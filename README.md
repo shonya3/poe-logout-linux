@@ -6,50 +6,24 @@ Pressing `~` instantly kills the game's live TCP connection.
 
 ## Install
 
-No Rust toolchain needed — download the binary from the
-[Releases](https://github.com/shonya3/poe-logout-linux/releases) page:
+Download from the [latest release](https://github.com/shonya3/poe-logout-linux/releases/latest):
 
 ```bash
 chmod +x poe-logout-linux
 ./poe-logout-linux
 ```
 
-Requires 64-bit glibc Linux (Mint/Ubuntu/Debian/Fedora/Arch...) - `ss` comes preinstalled everywhere.
-
 ## Requirements
 
-- Linux with `ss` from iproute2 (preinstalled on Mint/Ubuntu/Debian)
+- Linux with `ss` from iproute2 (preinstalled on virtually every distro)
 - Rust toolchain (`cargo`) — only for building
 - `sudo` rights at runtime (destroying sockets needs root)
 
-## Build
-
-```bash
-cargo build --release
-cp -f target/release/bin bin
-```
-
-`./bin` must be refreshed after every rebuild (it's a plain file, not a link).
-
-Optional shell aliases:
-
-```bash
-alias pobuild='cargo build --release && cp -f target/release/bin bin'
-alias porun='cargo build --release && sudo ./target/release/bin'
-```
-
-## Run
-
-```bash
-./bin
-```
-
-Then press **`~`** in-game — instant logout to character select. The daemon asks for your password at startup and runs elevated on its own.
 
 ## Testing without pressing keys
 
 ```bash
-sudo ./bin --test    # performs one logout pass immediately, then exits
+cargo run --release -- --test    # performs one logout pass immediately, then exits
 ```
 
 ## Changing the hotkey
