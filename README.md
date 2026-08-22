@@ -1,4 +1,4 @@
-# poe-logout-daemon (`bin`)
+# PoE logout for Linux
 
 A Linux alternative to [Lutbot's](https://github.com/5k-mirrors/poe-lutbot-ahk) Windows AutoHotkey logout macro.
 
@@ -27,7 +27,7 @@ cargo run --release -- --test    # performs one logout pass immediately, then ex
 ```
 
 ## Changing the hotkey
-
+  
 One line in `src/main.rs`:
 
 ```rust
