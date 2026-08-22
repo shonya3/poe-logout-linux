@@ -4,6 +4,18 @@ A Linux alternative to [Lutbot's](https://github.com/5k-mirrors/poe-lutbot-ahk) 
 
 Pressing `~` instantly kills the game's live TCP connection.
 
+## Install
+
+No Rust toolchain needed — download the binary from the
+[Releases](https://github.com/shonya3/poe-logout-linux/releases) page:
+
+```bash
+chmod +x poe-logout-linux
+./poe-logout-linux
+```
+
+Requires 64-bit glibc Linux (Mint/Ubuntu/Debian/Fedora/Arch...) - `ss` comes preinstalled everywhere.
+
 ## Requirements
 
 - Linux with `ss` from iproute2 (preinstalled on Mint/Ubuntu/Debian)
@@ -29,10 +41,10 @@ alias porun='cargo build --release && sudo ./target/release/bin'
 ## Run
 
 ```bash
-sudo ./bin
+./bin
 ```
 
-Then press **`~`** in-game — instant logout to character select.
+Then press **`~`** in-game — instant logout to character select. The daemon asks for your password at startup and runs elevated on its own.
 
 ## Testing without pressing keys
 

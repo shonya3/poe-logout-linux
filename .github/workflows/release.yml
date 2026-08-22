@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo build --release
+
+      - run: cp target/release/bin poe-logout-linux
+
+      - name: Attach binary to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" poe-logout-linux
+          --title "$GITHUB_REF_NAME"
+          --generate-notes

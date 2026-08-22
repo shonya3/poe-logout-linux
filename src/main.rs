@@ -26,10 +26,21 @@ fn main() {
             }
         };
     }
-    // the key we listen to: ~ (KEY_GRAVE)
     if unsafe { libc::geteuid() } != 0 {
-        eprintln!("not root - run with sudo: sudo ./bin");
-        exit(1);
+        // the daemon cannot work without root -> elevate ourselves once
+        let exe = match std::env::current_exe() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("cannot locate my own binary ({e}); run with sudo");
+                exit(1);
+            }
+        };
+        println!("requesting root (sudo)...");
+        let status = std::process::Command::new("sudo")
+            .arg(exe)
+            .args(std::env::args_os().skip(1))
+            .status();
+        exit(status.ok().and_then(|s| s.code()).unwrap_or(1));
     }
 
     let mut paths = Vec::new();
