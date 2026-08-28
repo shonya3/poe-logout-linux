@@ -70,15 +70,36 @@ fn main() {
         exit(1);
     }
 
-    match poe_pids().first() {
-        Some(pid) => match live_game_peer() {
-            Some((ip, port)) => {
-                println!("Path of Exile: running (pid {pid}), session {ip}:{port}")
+    let pids = poe_pids();
+    match pids.first() {
+        Some(pid) => {
+            let sessions = live_sessions();
+            // label from the matched processes (handles PoE1 vs PoE2)
+            let mut labels: Vec<&str> = pids.iter().map(|p| game_label(*p)).collect();
+            labels.sort_unstable();
+            labels.dedup();
+            let label = match labels.len() {
+                1 => labels[0],
+                _ => "Path of Exile / Path of Exile 2",
+            };
+            if let Some((ip, port)) = sessions.first() {
+                if sessions.len() == 1 {
+                    println!("{label}: running (pid {pid}), session {ip}:{port}");
+                } else {
+                    let list = sessions
+                        .iter()
+                        .map(|(ip, p)| format!("{ip}:{p}"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    println!(
+                        "{label}: running (pid {pid}), {} sessions: {list}",
+                        sessions.len()
+                    );
+                }
+            } else {
+                println!("{label}: running (pid {pid}) - no live game connection (login screen?)");
             }
-            None => {
-                println!("Path of Exile: running (pid {pid}) - no realm connection (login screen?)")
-            }
-        },
+        }
         None => println!("Path of Exile: not running"),
     }
 
@@ -135,18 +156,37 @@ fn poe_pids() -> Vec<u32> {
             continue;
         }
         if let Ok(cmd) = fs::read_to_string(e.path().join("cmdline")) {
-            // the real game's argv[0] is the .exe itself (S:\...\PathOfExile*.exe);
-            // launch wrappers (sh/reaper/python/bwrap) don't qualify
+            // the real game's argv[0] is the .exe itself (S:\...\PathOfExile*.exe,
+            // or PathOfExile2.exe under Steam/Proton); launch wrappers
+            // (sh/reaper/python/bwrap) don't qualify
             let is_exe = cmd
                 .split('\0')
                 .next()
                 .is_some_and(|a0| a0.to_lowercase().ends_with(".exe"));
+            // "pathofexile" also matches PoE2's PathOfExile2.exe, so both
+            // games are covered by the same rule
             if is_exe && cmd.to_lowercase().contains("pathofexile") {
                 out.push(pid);
             }
         }
     }
     out
+}
+
+/// Human-readable name of the game owning `pid`, taken from its cmdline.
+/// PoE2 shows up as `PathOfExile2.exe` (standalone) or inside a
+/// `Path of Exile 2` install directory (Steam/Proton) - both are detected;
+/// everything else is treated as the original Path of Exile.
+fn game_label(pid: u32) -> &'static str {
+    if let Ok(cmd) = fs::read_to_string(format!("/proc/{pid}/cmdline")) {
+        let c = cmd.to_lowercase();
+        // "path of exile 2" matches the Steam/Proton install dir;
+        // "pathofexile2" matches the standalone exe name
+        if c.contains("path of exile 2") || c.contains("pathofexile2") {
+            return "Path of Exile 2";
+        }
+    }
+    "Path of Exile"
 }
 
 /// Collect the kernel socket IDs owned by the given processes.
@@ -293,17 +333,24 @@ fn kill_port(port: u16) -> KillStatus {
     KillStatus::StillAlive
 }
 
-// live realm/game session = any established socket to the known game ports
-/// Server address of a live PoE session, if any: the first ESTABLISHED
-/// connection whose remote port is one of [`GAME_PORTS`].
+/// Live game sessions owned by PoE processes, for the startup status line.
 ///
-/// Port-based and display-only (startup status line). The actual kill path
-/// in `logout()` is stricter: it matches sockets by owning process.
-fn live_game_peer() -> Option<(IpAddr, u16)> {
+/// Port-agnostic: matches sockets by owning process (exactly how `logout()`
+/// picks what to kill), so both PoE1 (port 6112) and PoE2 (high ephemeral
+/// port) show up correctly. Returns the remote address of every non-loopback
+/// ESTABLISHED connection with port >= 1024.
+fn live_sessions() -> Vec<(IpAddr, u16)> {
+    let inodes = socket_inodes(&poe_pids());
     tcp_established()
         .into_iter()
-        .find(|c| GAME_PORTS.contains(&c.peer.1))
+        .filter(|c| inodes.contains(&c.inode))
+        .filter(|c| {
+            let loopback = matches!(c.peer.0, IpAddr::V4(a) if a.is_loopback())
+                || matches!(c.peer.0, IpAddr::V6(a) if a.is_loopback());
+            !loopback && c.peer.1 >= 1024
+        })
         .map(|c| c.peer)
+        .collect()
 }
 
 fn logout() -> io::Result<usize> {
